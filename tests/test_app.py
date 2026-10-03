@@ -59,6 +59,7 @@ def test_bad_image_is_skipped(monkeypatch):
         return httpx.Response(404)
 
     monkeypatch.setattr(main.config, "SOURCE_PAGES", ["http://t/p.html"])
+    monkeypatch.setattr(main.config, "IMAGE_SELECTOR", "img")
     monkeypatch.setattr(parser, "make_client",
                         lambda: httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=True))
     r = client.post("/api/analyze", json={"filter": "edges", "limit": 5})

@@ -1,14 +1,11 @@
 """Настройки приложения: источник данных и лимиты."""
 
-SOURCE_NAME = "Books to Scrape (демо-магазин для парсинга)"
-SOURCE_PAGES = [
-    "https://books.toscrape.com/catalogue/page-1.html",
-    "https://books.toscrape.com/catalogue/page-2.html",
-    "https://books.toscrape.com/catalogue/page-3.html",
-    "https://books.toscrape.com/catalogue/page-4.html",
-    "https://books.toscrape.com/catalogue/page-5.html",
-]
-SOURCE_URL = "https://books.toscrape.com/"
+SOURCE_NAME = "WallpapersCraft — каталог «Art», 1920x1080"
+SOURCE_URL = "https://wallpaperscraft.com/catalog/art/1920x1080"
+# страница 1 — без суффикса, дальше /page2, /page3 ... (≈15 превью на страницу)
+SOURCE_PAGES = [SOURCE_URL] + [f"{SOURCE_URL}/page{n}" for n in range(2, 9)]
+IMAGE_SELECTOR = "img.wallpapers__image"  # только превью обоев, без логотипа и иконок
+CRAWL_DELAY = 1.0  # секунд между страницами (Crawl-delay в robots.txt источника)
 
 HTML_TIMEOUT = 10.0          # секунд на загрузку страницы
 IMAGE_TIMEOUT = 10.0         # секунд на загрузку одного изображения

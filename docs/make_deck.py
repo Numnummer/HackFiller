@@ -56,20 +56,20 @@ s = prs.slides.add_slide(BLANK); bg(s, INK)
 text(s, 0.8, 1.5, 7, 1.2, "ImageScope", size=66, bold=True, color=PAPER, font="Cambria")
 text(s, 0.8, 2.9, 6.6, 1.4, "Собираем картинки каталога, измеряем и превращаем в стиль — с «до/после» за один клик",
      size=22, color=RGBColor.from_string("CADCFC"))
-for i, (n, l) in enumerate([("100", "обложек с books.toscrape.com"), ("13", "фильтров NumPy и PyTorch"), ("5", "творческих пресетов")]):
+for i, (n, l) in enumerate([("120", "обоев с wallpaperscraft.com"), ("13", "фильтров NumPy и PyTorch"), ("5", "творческих пресетов")]):
     text(s, 0.8 + i * 2.5, 5.2, 2.3, 0.9, n, size=48, bold=True, color=AMBER, font="Cambria")
     text(s, 0.8 + i * 2.5, 6.1, 2.2, 0.7, l, size=14, color=PAPER)
-s.shapes.add_picture(str(IMG / "orig1.jpg"), Inches(8.2), Inches(1.2), height=Inches(2.7))
-s.shapes.add_picture(str(IMG / "comic1.jpg"), Inches(10.7), Inches(3.5), height=Inches(2.7))
-text(s, 8.2, 4.1, 2.4, 0.5, "до", size=14, color=AMBER)
-text(s, 10.7, 6.35, 2.4, 0.5, "после: «комикс»", size=14, color=AMBER)
+s.shapes.add_picture(str(IMG / "orig1.jpg"), Inches(8.2), Inches(1.0), width=Inches(4.5))
+s.shapes.add_picture(str(IMG / "comic1.jpg"), Inches(8.2), Inches(4.1), width=Inches(4.5))
+text(s, 8.2, 3.55, 2.4, 0.5, "до", size=14, color=AMBER)
+text(s, 8.2, 6.75, 3, 0.5, "после: «комикс»", size=14, color=AMBER)
 notes(s, "Задача: превратить сырые картинки каталога в единый, чистый визуальный ряд и дать измеримый результат. ImageScope сам собирает данные, анализирует и показывает до/после.")
 
 # 2 ----------------------------------------------------- задача и архитектура
 s = prs.slides.add_slide(BLANK); bg(s, PAPER)
 title(s, "Задача и архитектура")
 text(s, 0.6, 1.4, 12, 0.9,
-     "Карточки товаров в каталоге разные: тёмные, малоконтрастные, неровные. ImageScope находит их на реальном сайте, "
+     "Картинки каталога разные: тёмные, малоконтрастные, неровные. ImageScope находит их на реальном сайте (WallpapersCraft, раздел Art), "
      "считает метрики и применяет фильтры — пользователь сразу видит эффект.", size=18, color=MUTED)
 steps = [("Интерфейс", "HTML/JS: фильтр, интенсивность, галерея"), ("FastAPI", "POST /api/analyze, Pydantic"),
          ("Парсинг", "httpx + BeautifulSoup, тайм-ауты, пропуск битых"), ("NumPy / PyTorch", "статистика, фильтры, conv2d"),
@@ -107,18 +107,18 @@ notes(s, "NumPy-часть — статистика и фильтры чисты
 # 4 ------------------------------------------------- концепция и до/после
 s = prs.slides.add_slide(BLANK); bg(s, INK)
 text(s, 0.6, 0.45, 12, 0.8, "Один каталог — пять стилей", size=36, bold=True, color=PAPER, font="Cambria")
-row = [("Оригинал", "orig3.jpg", "в среднем: яркость 114, контраст 50"), ("Карточка", "product_boost3.jpg", "в среднем: яркость 147, контраст 70"),
+row = [("Оригинал", "orig3.jpg", "в среднем: яркость 83, контраст 50"), ("Карточка", "product_boost3.jpg", "в среднем: яркость 109, контраст 62"),
        ("Комикс", "comic3.jpg", "постеризация + контуры Собеля"), ("Ретро", "retro3.jpg", "сепия + размытие + тиснение"),
        ("Пиксель-арт", "pixel_art3.jpg", "пикселизация + палитра")]
 for i, (h, f, cap) in enumerate(row):
     x = 0.6 + i * 2.5
     box(s, x, 1.6, 2.3, 4.4, SLATE)
-    pic = s.shapes.add_picture(str(IMG / f), Inches(x + 0.15), Inches(1.75), width=Inches(2.0), height=Inches(2.8))
+    pic = s.shapes.add_picture(str(IMG / f), Inches(x + 0.15), Inches(2.5), width=Inches(2.0))
     text(s, x + 0.15, 4.7, 2.0, 0.4, h, size=18, bold=True, color=AMBER, font="Cambria")
     text(s, x + 0.15, 5.15, 2.0, 0.8, cap, size=14, color=PAPER)
-text(s, 0.6, 6.3, 12, 0.7, "Средние по 6 обложкам: «Карточка товара» поднимает яркость 114 → 147 и контраст 50 → 70 — каталог выглядит чище и единообразнее.",
+text(s, 0.6, 6.3, 12, 0.7, "Средние по 6 обоям: «Карточка товара» поднимает яркость 83 → 109 и контраст 50 → 62 — каталог выглядит чище и единообразнее.",
      size=16, color=RGBColor.from_string("CADCFC"))
-notes(s, "Одна и та же обложка пропущена через разные пресеты. Главный практический пресет — «Карточка товара»: автоконтраст, подъём теней, резкость.")
+notes(s, "Одни и те же обои пропущена через разные пресеты. Главный практический пресет — «Карточка товара»: автоконтраст, подъём теней, резкость.")
 
 # 5 ---------------------------------------------------- вклад и выводы
 s = prs.slides.add_slide(BLANK); bg(s, PAPER)
@@ -142,7 +142,7 @@ for i in range(4):
                 run.font.size = Pt(16); run.font.name = "Calibri"; run.font.bold = i == 0
                 run.font.color.rgb = PAPER if i == 0 else INK
 text(s, 0.6, 4.5, 12, 0.5, "Выводы", size=22, bold=True, font="Cambria")
-text(s, 0.6, 5.1, 12, 1.8, ["• Рабочая цепочка от сбора до «до/после» на реальном сайте, 100 изображений",
+text(s, 0.6, 5.1, 12, 1.8, ["• Рабочая цепочка от сбора до «до/после» на реальном сайте, 120 изображений",
                             "• NumPy и PyTorch реально участвуют в результате: метрики и визуальные фильтры",
                             "• Дальше: свои ядра, сохранение пресетов, пакетная выгрузка обработанных карточек"], size=16)
 notes(s, "Таблицу вклада заменить реальными именами команды перед защитой. Каждый участник кратко называет свой вклад.")

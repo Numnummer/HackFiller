@@ -29,11 +29,11 @@ class Failure:
     message: str
 
 
-def extract_images(html: str, base_url: str) -> list[Candidate]:
+def extract_images(html: str, base_url: str, selector: str = "img") -> list[Candidate]:
     """Находит <img> и превращает относительные ссылки в абсолютные."""
     soup = BeautifulSoup(html, "html.parser")
     found: list[Candidate] = []
-    for img in soup.find_all("img"):
+    for img in soup.select(selector):
         src = img.get("src") or img.get("data-src")
         if not src or src.startswith("data:"):
             continue
@@ -41,6 +41,7 @@ def extract_images(html: str, base_url: str) -> list[Candidate]:
         if urlparse(url).scheme not in ("http", "https"):
             continue
         title = (img.get("alt") or img.get("title") or "").strip()
+        title = title.removeprefix("Preview wallpaper").strip()
         found.append(Candidate(url, title))
     return found
 
@@ -49,14 +50,19 @@ async def _fetch_page(client: httpx.AsyncClient, url: str):
     try:
         r = await client.get(url, timeout=config.HTML_TIMEOUT)
         r.raise_for_status()
-        return extract_images(r.text, str(r.url)), None
+        return extract_images(r.text, str(r.url), config.IMAGE_SELECTOR), None
     except Exception as e:  # noqa: BLE001 — любая ошибка страницы не должна ронять запрос
         return [], Failure(url, "page", f"{type(e).__name__}: {e}")
 
 
 async def collect_candidates(client: httpx.AsyncClient, pages: list[str]):
-    """Параллельно загружает страницы каталога. Возвращает (кандидаты, ошибки, число страниц)."""
-    results = await asyncio.gather(*(_fetch_page(client, p) for p in pages))
+    """Последовательно (с паузой по Crawl-delay) загружает страницы каталога.
+    Возвращает (кандидаты, ошибки, число страниц)."""
+    results = []
+    for i, p in enumerate(pages):
+        if i:
+            await asyncio.sleep(config.CRAWL_DELAY)
+        results.append(await _fetch_page(client, p))
     seen: set[str] = set()
     candidates: list[Candidate] = []
     failures: list[Failure] = []
