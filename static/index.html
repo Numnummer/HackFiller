@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ImageScope</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>ImageScope</h1>
+  <p class="src">Источник: <a id="srcLink" href="#" target="_blank" rel="noopener"></a></p>
+</header>
+
+<section class="panel controls">
+  <label>Фильтр / пресет
+    <select id="filter"></select>
+  </label>
+  <p id="filterDesc" class="hint"></p>
+  <label>Интенсивность: <b id="intVal">1.00</b>
+    <input id="intensity" type="range" min="0" max="1" step="0.05" value="1">
+  </label>
+  <label>Изображений: <b id="limVal">12</b>
+    <input id="limit" type="range" min="1" max="20" step="1" value="12">
+  </label>
+  <button id="run">Запустить сбор</button>
+</section>
+
+<div id="status" class="status" hidden></div>
+
+<section id="report" hidden>
+  <div class="cards" id="cards"></div>
+  <div class="panel">
+    <h2>Средняя гистограмма яркости</h2>
+    <div class="legend"><span class="dot a"></span>до <span class="dot b"></span>после</div>
+    <div id="hist" class="hist"></div>
+  </div>
+  <div class="panel" id="errPanel" hidden>
+    <h2>Пропущено / ошибки</h2>
+    <ul id="errors"></ul>
+  </div>
+  <h2>Галерея «до / после»</h2>
+  <div id="gallery" class="gallery"></div>
+</section>
+<script src="/static/app.js"></script>
+</body>
+</html>
