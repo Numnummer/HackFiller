@@ -107,7 +107,7 @@ def np_posterize(a, k):
 
 def np_pixelate(a, k):
     h, w, _ = a.shape
-    block = max(2, int(round((0.008 + 0.032 * k) * max(h, w))))  # до 4% стороны
+    block = max(2, int(round((0.004 + 0.012 * k) * max(h, w))))  # 0.4–1.6% стороны (≈8–31 px на Full HD)
     hp, wp = -(-h // block) * block, -(-w // block) * block
     padded = np.pad(a, ((0, hp - h), (0, wp - w), (0, 0)), mode="edge")
     small = padded.reshape(hp // block, block, wp // block, block, 3).mean(axis=(1, 3))
@@ -128,18 +128,19 @@ def np_gamma(a, k):
 
 
 def np_contrast(a, k):
-    """Растяжение гистограммы: 1-й..99-й процентили -> 0..255."""
-    lo, hi = np.percentile(a, [1, 99])
+    """Автоконтраст: растяжение по 4–96 процентилям + S-кривая (smoothstep) для среднего контраста."""
+    lo, hi = np.percentile(a, [4, 96])
     if hi - lo < 1:
         return a
-    stretched = (a - lo) * (255 / (hi - lo))
-    return _blend(a, stretched, k)
+    x = np.clip((a - lo) / (hi - lo), 0, 1)
+    x = _blend(x, x * x * (3 - 2 * x), 0.6)  # тени темнее, света ярче
+    return _blend(a, x * 255, k)
 
 
 def np_saturate(a, k):
     """Насыщенность: отталкиваем каналы от серого."""
     g = (a @ LUMA)[..., None]
-    return g + (a - g) * (1 + 1.2 * k)
+    return g + (a - g) * (1 + 2.5 * k)  # k=1: цветность ×3.5
 
 
 def np_vignette(a, k):
@@ -253,12 +254,12 @@ FILTERS = {
     "invert": (np_invert, "numpy", "Негатив", "255 − значение пикселя."),
     "sepia": (np_sepia, "numpy", "Сепия", "Матричное преобразование каналов в тёплые тона."),
     "posterize": (np_posterize, "numpy", "Постеризация", "Квантование до 3–8 уровней на канал."),
-    "pixelate": (np_pixelate, "numpy", "Пикселизация", "Усреднение блоков 2–16 px."),
+    "pixelate": (np_pixelate, "numpy", "Пикселизация", "Усреднение квадратных блоков (до 1.6% стороны)."),
     "threshold": (np_threshold, "numpy", "Порог", "Чёрно-белое изображение по порогу яркости."),
-    "saturate": (np_saturate, "numpy", "Насыщенность", "Усиление цветов относительно серого."),
+    "saturate": (np_saturate, "numpy", "Насыщенность", "Усиление цветности относительно серого (до ×3.5)."),
     "vignette": (np_vignette, "numpy", "Виньетка", "Радиальное затемнение к краям кадра."),
     "gamma": (np_gamma, "numpy", "Гамма-коррекция", "Подъём теней: x^γ."),
-    "auto_contrast": (np_contrast, "numpy", "Автоконтраст", "Растяжение гистограммы по 1–99 процентилям."),
+    "auto_contrast": (np_contrast, "numpy", "Автоконтраст", "Растяжение по 4–96 процентилям + S-кривая: сильнее контраст."),
     "blur": (th_blur, "torch", "Размытие", "Гауссово размытие, два разделимых conv2d; радиус растёт с разрешением."),
     "sharpen": (th_sharpen, "torch", "Резкость", "Unsharp mask: детали (исходник − размытие, conv2d) усиливаются в 1–4 раза."),
     "emboss": (th_emboss, "torch", "Рельеф", "Сглаживание + ядро emboss 3×3 (conv2d) — эффект тиснения."),
@@ -269,13 +270,13 @@ FILTERS = {
 # пресет = цепочка (фильтр, множитель интенсивности)
 PRESETS = {
     "product_boost": ("Карточка товара", "Автоконтраст + подъём теней + насыщенность + резкость: чище и ярче для каталога.",
-                      [("auto_contrast", 1.0), ("gamma", 0.6), ("saturate", 0.6), ("sharpen", 0.6)]),
+                      [("auto_contrast", 1.0), ("gamma", 0.6), ("saturate", 0.8), ("sharpen", 0.6)]),
     "comic": ("Комикс", "Автоконтраст + постеризация + насыщенные цвета + чёрные контуры Собеля.",
-              [("auto_contrast", 1.0), ("gamma", 0.7), ("posterize", 0.6), ("saturate", 0.7), ("ink", 1.0)]),
+              [("auto_contrast", 1.0), ("gamma", 0.7), ("posterize", 0.6), ("saturate", 0.9), ("ink", 1.0)]),
     "retro": ("Ретро", "Сепия + мягкость + тиснение + виньетка: выцветшая плёнка.",
               [("sepia", 1.0), ("blur", 0.2), ("emboss", 0.3), ("vignette", 1.0)]),
-    "pixel_art": ("Пиксель-арт", "Крупная пикселизация + постеризация палитры.",
-                  [("pixelate", 1.0), ("posterize", 0.7), ("saturate", 0.5)]),
+    "pixel_art": ("Пиксель-арт", "Мелкая пикселизация + мягкая постеризация палитры.",
+                  [("pixelate", 0.7), ("posterize", 0.3), ("saturate", 0.3)]),
     "sketch": ("Набросок", "Только контуры на белом фоне.",
                [("edges", 1.0)]),
 }
