@@ -22,6 +22,14 @@ def decode_rgb(data: bytes) -> np.ndarray:
     return np.asarray(img.convert("RGB"), dtype=np.uint8)
 
 
+def to_jpeg(arr: np.ndarray, max_side: int = 1920, quality: int = 90) -> bytes:
+    img = Image.fromarray(arr)
+    img.thumbnail((max_side, max_side))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=quality)
+    return buf.getvalue()
+
+
 def to_data_uri(arr: np.ndarray) -> str:
     img = Image.fromarray(arr)
     img.thumbnail((config.PREVIEW_SIDE, config.PREVIEW_SIDE))
@@ -78,15 +86,14 @@ def np_sepia(a, k):
 
 
 def np_posterize(a, k):
-    levels = int(round(8 - 6 * k))  # k=0 -> 8 уровней, k=1 -> 2 уровня
-    levels = max(2, levels)
+    levels = max(3, int(round(8 - 5 * k)))  # k=0 -> 8 уровней, k=1 -> 3 уровня
     step = 255 / (levels - 1)
     return np.round(a / step) * step
 
 
 def np_pixelate(a, k):
     h, w, _ = a.shape
-    block = max(1, int(round(2 + 14 * k)))
+    block = max(2, int(round((0.008 + 0.032 * k) * max(h, w))))  # до 4% стороны
     hp, wp = -(-h // block) * block, -(-w // block) * block
     padded = np.pad(a, ((0, hp - h), (0, wp - w), (0, 0)), mode="edge")
     small = padded.reshape(hp // block, block, wp // block, block, 3).mean(axis=(1, 3))
@@ -102,7 +109,7 @@ def np_threshold(a, k):
 
 
 def np_gamma(a, k):
-    gamma = 1.0 - 0.5 * k  # <1 осветляет тёмные области
+    gamma = 1.0 - 0.65 * k  # <1 осветляет тёмные области
     return 255 * np.power(a / 255, gamma)
 
 
@@ -115,10 +122,23 @@ def np_contrast(a, k):
     return _blend(a, stretched, k)
 
 
+def np_saturate(a, k):
+    """Насыщенность: отталкиваем каналы от серого."""
+    g = (a @ LUMA)[..., None]
+    return g + (a - g) * (1 + 1.2 * k)
+
+
+def np_vignette(a, k):
+    """Затемнение к краям (радиальная маска)."""
+    h, w, _ = a.shape
+    y, x = np.ogrid[:h, :w]
+    r = np.sqrt(((x - w / 2) / (w / 2)) ** 2 + ((y - h / 2) / (h / 2)) ** 2)
+    mask = 1 - 0.75 * k * np.clip(r - 0.35, 0, 1) ** 1.5
+    return a * mask[..., None]
+
+
 # ---------- PyTorch-свёртки ----------
 KERNELS = {
-    "blur": torch.tensor([[1, 2, 1], [2, 4, 2], [1, 2, 1]], dtype=torch.float32) / 16,
-    "sharpen": torch.tensor([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=torch.float32),
     "emboss": torch.tensor([[-2, -1, 0], [-1, 1, 1], [0, 1, 2]], dtype=torch.float32),
 }
 SOBEL_X = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
@@ -143,51 +163,72 @@ def _conv(t: torch.Tensor, kernel: torch.Tensor) -> torch.Tensor:
     return F.conv2d(t, w, groups=c)
 
 
-def _repeat_conv(t, kernel, times):
-    for _ in range(times):
-        t = _conv(t, kernel)
-    return t
-
-
 def _mix(orig, new, k):
     return orig * (1 - k) + new * k
 
 
+def _scale(a: np.ndarray) -> float:
+    """Размеры эффектов привязаны к разрешению: на Full HD они крупнее, чем на 640 px."""
+    return max(1.0, max(a.shape[:2]) / 640)
+
+
+def _gauss_blur(t: torch.Tensor, sigma: float) -> torch.Tensor:
+    """Гауссово размытие: два разделимых прохода conv2d (по строкам и столбцам)."""
+    if sigma < 0.3:
+        return t
+    r = max(1, int(np.ceil(3 * sigma)))
+    x = torch.arange(-r, r + 1, dtype=torch.float32)
+    k = torch.exp(-x ** 2 / (2 * sigma ** 2))
+    k = k / k.sum()
+    c = t.shape[1]
+    wh = k.view(1, 1, 1, -1).expand(c, 1, 1, -1).contiguous()
+    wv = k.view(1, 1, -1, 1).expand(c, 1, -1, 1).contiguous()
+    t = F.conv2d(F.pad(t, (r, r, 0, 0), mode="replicate"), wh, groups=c)
+    return F.conv2d(F.pad(t, (0, 0, r, r), mode="replicate"), wv, groups=c)
+
+
 def th_blur(a, k):
     t = _to_tensor(a)
-    return _from_tensor(_repeat_conv(t, KERNELS["blur"], int(round(5 * k))))
+    return _from_tensor(_gauss_blur(t, 4 * k * _scale(a)))
 
 
 def th_sharpen(a, k):
+    """Unsharp mask: исходник + A·(исходник − размытие)."""
     t = _to_tensor(a)
-    return _from_tensor(_mix(t, _conv(t, KERNELS["sharpen"]), k))
+    detail = t - _gauss_blur(t, 1.5 * _scale(a))
+    return _from_tensor(t + (3.0 * k) * detail)
 
 
 def th_emboss(a, k):
     t = _to_tensor(a)
-    emb = _conv(t, KERNELS["emboss"]) + 0.5
+    emb = 0.5 + 2.0 * _conv(_gauss_blur(t, 0.8 * _scale(a)), KERNELS["emboss"])
     return _from_tensor(_mix(t, emb, k))
 
 
-def _sobel_magnitude(t: torch.Tensor) -> torch.Tensor:
-    g = t.mean(dim=1, keepdim=True)  # 1 x 1 x H x W
-    gx, gy = _conv(g, SOBEL_X), _conv(g, SOBEL_Y)
-    return torch.sqrt(gx ** 2 + gy ** 2)
+def _edge_map(a: np.ndarray, t: torch.Tensor) -> torch.Tensor:
+    """Контуры Собеля 0..1: сглаживание → 2 ядра conv2d → нормировка → утолщение линий."""
+    s = _scale(a)
+    g = _gauss_blur(t.mean(dim=1, keepdim=True), 0.7 * s)
+    mag = torch.sqrt(_conv(g, SOBEL_X) ** 2 + _conv(g, SOBEL_Y) ** 2)
+    ref = torch.quantile(mag.flatten()[::97], 0.97) + 1e-6
+    mag = (mag / ref).clamp(0, 1)
+    r = int(s / 1.5)
+    if r >= 1:  # утолщаем линии пропорционально разрешению
+        mag = F.max_pool2d(mag, 2 * r + 1, stride=1, padding=r)
+    return mag
 
 
 def th_edges(a, k):
     """Контуры Собеля: тёмные линии на белом фоне, как в карандашном наброске."""
     t = _to_tensor(a)
-    mag = _sobel_magnitude(t)
-    mag = (mag / (mag.amax() + 1e-6) * (2 + 4 * k)).clamp(0, 1)
+    mag = (_edge_map(a, t) * (0.8 + 1.2 * k)).clamp(0, 1)
     return _from_tensor((1 - mag).expand(-1, 3, -1, -1).contiguous())
 
 
 def th_ink(a, k):
     """Накладывает контуры Собеля чёрными линиями поверх изображения."""
     t = _to_tensor(a)
-    mag = _sobel_magnitude(t)
-    mag = (mag / (mag.amax() + 1e-6) * 4).clamp(0, 1)
+    mag = (_edge_map(a, t) * 1.5).clamp(0, 1)
     return _from_tensor(t * (1 - mag * k))
 
 
@@ -196,28 +237,30 @@ FILTERS = {
     "grayscale": (np_grayscale, "numpy", "Оттенки серого", "Взвешенная сумма каналов R,G,B."),
     "invert": (np_invert, "numpy", "Негатив", "255 − значение пикселя."),
     "sepia": (np_sepia, "numpy", "Сепия", "Матричное преобразование каналов в тёплые тона."),
-    "posterize": (np_posterize, "numpy", "Постеризация", "Квантование до 2–8 уровней на канал."),
+    "posterize": (np_posterize, "numpy", "Постеризация", "Квантование до 3–8 уровней на канал."),
     "pixelate": (np_pixelate, "numpy", "Пикселизация", "Усреднение блоков 2–16 px."),
     "threshold": (np_threshold, "numpy", "Порог", "Чёрно-белое изображение по порогу яркости."),
+    "saturate": (np_saturate, "numpy", "Насыщенность", "Усиление цветов относительно серого."),
+    "vignette": (np_vignette, "numpy", "Виньетка", "Радиальное затемнение к краям кадра."),
     "gamma": (np_gamma, "numpy", "Гамма-коррекция", "Подъём теней: x^γ."),
     "auto_contrast": (np_contrast, "numpy", "Автоконтраст", "Растяжение гистограммы по 1–99 процентилям."),
-    "blur": (th_blur, "torch", "Размытие", "Гауссово ядро 3×3, conv2d, до 5 проходов."),
-    "sharpen": (th_sharpen, "torch", "Резкость", "Ядро повышения резкости 3×3 через conv2d."),
-    "emboss": (th_emboss, "torch", "Рельеф", "Ядро emboss — эффект тиснения."),
-    "edges": (th_edges, "torch", "Контуры", "Оператор Собеля (2 ядра conv2d) — набросок карандашом."),
+    "blur": (th_blur, "torch", "Размытие", "Гауссово размытие, два разделимых conv2d; радиус растёт с разрешением."),
+    "sharpen": (th_sharpen, "torch", "Резкость", "Unsharp mask: детали (исходник − размытие, conv2d) усиливаются в 1–4 раза."),
+    "emboss": (th_emboss, "torch", "Рельеф", "Сглаживание + ядро emboss 3×3 (conv2d) — эффект тиснения."),
+    "edges": (th_edges, "torch", "Контуры", "Оператор Собеля (2 ядра conv2d), линии утолщаются с разрешением — набросок."),
     "ink": (th_ink, "torch", "Чернила", "Контуры Собеля поверх исходника."),
 }
 
 # пресет = цепочка (фильтр, множитель интенсивности)
 PRESETS = {
-    "product_boost": ("Карточка товара", "Автоконтраст + подъём теней + резкость: чище и ярче для каталога.",
-                      [("auto_contrast", 1.0), ("gamma", 0.6), ("sharpen", 1.0)]),
-    "comic": ("Комикс", "Постеризация цвета + чёрные контуры Собеля.",
-              [("posterize", 0.6), ("ink", 1.0)]),
-    "retro": ("Ретро", "Сепия + лёгкое размытие + тиснение для выцветшей плёнки.",
-              [("sepia", 1.0), ("blur", 0.25), ("emboss", 0.15)]),
+    "product_boost": ("Карточка товара", "Автоконтраст + подъём теней + насыщенность + резкость: чище и ярче для каталога.",
+                      [("auto_contrast", 1.0), ("gamma", 0.6), ("saturate", 0.6), ("sharpen", 0.6)]),
+    "comic": ("Комикс", "Автоконтраст + постеризация + насыщенные цвета + чёрные контуры Собеля.",
+              [("auto_contrast", 1.0), ("gamma", 0.7), ("posterize", 0.6), ("saturate", 0.7), ("ink", 1.0)]),
+    "retro": ("Ретро", "Сепия + мягкость + тиснение + виньетка: выцветшая плёнка.",
+              [("sepia", 1.0), ("blur", 0.2), ("emboss", 0.3), ("vignette", 1.0)]),
     "pixel_art": ("Пиксель-арт", "Крупная пикселизация + постеризация палитры.",
-                  [("pixelate", 1.0), ("posterize", 0.5)]),
+                  [("pixelate", 1.0), ("posterize", 0.7), ("saturate", 0.5)]),
     "sketch": ("Набросок", "Только контуры на белом фоне.",
                [("edges", 1.0)]),
 }

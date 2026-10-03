@@ -1,6 +1,8 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 let filters = [];
+let shown = [];
+let cur = -1;
 
 function showStatus(text, kind) {
   const el = $("status");
@@ -55,14 +57,15 @@ function render(d) {
   $("errors").innerHTML = d.errors.map((e) =>
     `<li>[${e.stage}] ${esc(e.url || "")} — ${esc(e.message)}</li>`).join("");
 
-  $("gallery").innerHTML = d.images.map((im) => {
+  shown = d.images;
+  $("gallery").innerHTML = d.images.map((im, idx) => {
     const a = im.stats, b = im.result_stats;
     const chain = im.filters.map((f) => `<span class="tag">${f.name} (${f.engine}) ×${f.intensity}</span>`).join("");
     const flags = a.flags.map((f) => `<span class="tag warn">${esc(f)}</span>`).join("");
     return `<div class="item"><h3 title="${esc(im.title)}">${esc(im.title || im.url)}</h3>
       <div class="pair">
-        <figure><img src="${im.original}" alt="до"><figcaption>до</figcaption></figure>
-        <figure><img src="${im.processed}" alt="после"><figcaption>после</figcaption></figure>
+        <figure><img src="${im.original}" alt="до" data-i="${idx}"><figcaption>до</figcaption></figure>
+        <figure><img src="${im.processed}" alt="после" data-i="${idx}"><figcaption>после</figcaption></figure>
       </div>
       <div class="meta">
         <span>Размер: ${a.width}×${a.height} (${a.aspect_ratio})</span>
@@ -105,3 +108,31 @@ $("intensity").addEventListener("input", (e) => ($("intVal").textContent = (+e.t
 $("limit").addEventListener("input", (e) => ($("limVal").textContent = e.target.value));
 $("run").addEventListener("click", run);
 init();
+
+function openModal(i) {
+  if (!shown.length) return;
+  cur = (i + shown.length) % shown.length;
+  const im = shown[cur], a = im.stats, b = im.result_stats;
+  $("mTitle").textContent = `${im.title || im.url} (${cur + 1}/${shown.length})`;
+  $("mBefore").src = im.original_full;  // сначала грузится полноразмерный JPEG
+  $("mAfter").src = im.processed_full;
+  $("mMeta").textContent = `${a.width}×${a.height} · яркость ${a.brightness} → ${b.brightness} · контраст ${a.contrast} → ${b.contrast} · ` +
+    im.filters.map((f) => `${f.name} (${f.engine}) ×${f.intensity}`).join(", ");
+  $("modal").hidden = false;
+}
+function closeModal() { $("modal").hidden = true; cur = -1; }
+
+$("gallery").addEventListener("click", (e) => {
+  const i = e.target.dataset && e.target.dataset.i;
+  if (e.target.tagName === "IMG" && i !== undefined) openModal(+i);
+});
+$("mClose").addEventListener("click", closeModal);
+$("mPrev").addEventListener("click", () => openModal(cur - 1));
+$("mNext").addEventListener("click", () => openModal(cur + 1));
+$("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
+document.addEventListener("keydown", (e) => {
+  if ($("modal").hidden) return;
+  if (e.key === "Escape") closeModal();
+  if (e.key === "ArrowLeft") openModal(cur - 1);
+  if (e.key === "ArrowRight") openModal(cur + 1);
+});

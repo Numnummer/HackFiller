@@ -42,6 +42,19 @@
   <h2>Галерея «до / после»</h2>
   <div id="gallery" class="gallery"></div>
 </section>
+<div id="modal" class="modal" hidden>
+  <button class="nav prev" id="mPrev" aria-label="Назад">‹</button>
+  <div class="mbody">
+    <button class="close" id="mClose" aria-label="Закрыть">×</button>
+    <h3 id="mTitle"></h3>
+    <div class="mpair">
+      <figure><img id="mBefore" alt="до"><figcaption>до</figcaption></figure>
+      <figure><img id="mAfter" alt="после"><figcaption>после</figcaption></figure>
+    </div>
+    <p id="mMeta" class="hint"></p>
+  </div>
+  <button class="nav next" id="mNext" aria-label="Вперёд">›</button>
+</div>
 <script src="/static/app.js"></script>
 </body>
 </html>

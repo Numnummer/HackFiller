@@ -4,10 +4,10 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import config, parser, processing
+from . import config, parser, processing, store
 from .schemas import (AnalyzeRequest, AnalyzeResponse, ErrorItem, FilterInfo,
                       ImageResult, Summary)
 
@@ -32,6 +32,14 @@ async def source():
     return {"name": config.SOURCE_NAME, "url": config.SOURCE_URL}
 
 
+@app.get("/api/img/{token}.jpg")
+async def full_image(token: str):
+    data = store.get(token)
+    if data is None:
+        raise HTTPException(404, "Изображение устарело — запустите сбор заново")
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
+
+
 @app.get("/api/filters", response_model=list[FilterInfo])
 async def filters():
     return processing.list_filters()
@@ -48,6 +56,8 @@ def _process_one(item: parser.Downloaded, chain):
         filters=processing.describe_chain(chain),
         original=processing.to_data_uri(arr),
         processed=processing.to_data_uri(out),
+        original_full=f"/api/img/{store.put(processing.to_jpeg(arr))}.jpg",
+        processed_full=f"/api/img/{store.put(processing.to_jpeg(out))}.jpg",
     )
 
 

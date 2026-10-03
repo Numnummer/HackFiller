@@ -1,5 +1,7 @@
 """Получение HTML, извлечение ссылок на изображения и их загрузка."""
 import asyncio
+import re
+import time
 from dataclasses import dataclass
 from urllib.parse import urldefrag, urljoin, urlparse
 
@@ -29,7 +31,8 @@ class Failure:
     message: str
 
 
-def extract_images(html: str, base_url: str, selector: str = "img") -> list[Candidate]:
+def extract_images(html: str, base_url: str, selector: str = "img",
+                   rewrite: tuple[str, str] | None = None) -> list[Candidate]:
     """Находит <img> и превращает относительные ссылки в абсолютные."""
     soup = BeautifulSoup(html, "html.parser")
     found: list[Candidate] = []
@@ -40,6 +43,8 @@ def extract_images(html: str, base_url: str, selector: str = "img") -> list[Cand
         url = urldefrag(urljoin(base_url, src.strip()))[0]
         if urlparse(url).scheme not in ("http", "https"):
             continue
+        if rewrite:
+            url = re.sub(rewrite[0], rewrite[1], url)
         title = (img.get("alt") or img.get("title") or "").strip()
         title = title.removeprefix("Preview wallpaper").strip()
         found.append(Candidate(url, title))
@@ -50,14 +55,22 @@ async def _fetch_page(client: httpx.AsyncClient, url: str):
     try:
         r = await client.get(url, timeout=config.HTML_TIMEOUT)
         r.raise_for_status()
-        return extract_images(r.text, str(r.url), config.IMAGE_SELECTOR), None
+        return extract_images(r.text, str(r.url), config.IMAGE_SELECTOR,
+                                              config.IMAGE_URL_REWRITE), None
     except Exception as e:  # noqa: BLE001 — любая ошибка страницы не должна ронять запрос
         return [], Failure(url, "page", f"{type(e).__name__}: {e}")
+
+
+_cache: dict[tuple, tuple[float, list, int]] = {}
 
 
 async def collect_candidates(client: httpx.AsyncClient, pages: list[str]):
     """Последовательно (с паузой по Crawl-delay) загружает страницы каталога.
     Возвращает (кандидаты, ошибки, число страниц)."""
+    key = tuple(pages)
+    hit = _cache.get(key)
+    if hit and time.monotonic() - hit[0] < config.PAGES_CACHE_TTL:
+        return list(hit[1]), [], hit[2]  # список страниц каталога недавно уже собирали
     results = []
     for i, p in enumerate(pages):
         if i:
@@ -76,6 +89,8 @@ async def collect_candidates(client: httpx.AsyncClient, pages: list[str]):
             if c.url not in seen:
                 seen.add(c.url)
                 candidates.append(c)
+    if not failures and candidates:
+        _cache[key] = (time.monotonic(), list(candidates), ok_pages)
     return candidates, failures, ok_pages
 
 

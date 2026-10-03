@@ -40,7 +40,9 @@ class ImageResult(BaseModel):
     stats: ImageStats
     result_stats: ImageStats
     filters: list[AppliedFilter]
-    original: str   # data URI
+    original: str   # data URI (превью)
+    original_full: str   # URL полноразмерного JPEG
+    processed_full: str
     processed: str  # data URI
 
 
