@@ -134,16 +134,36 @@ init();
 
 function openModal(i) {
   if (!shown.length) return;
+
   cur = (i + shown.length) % shown.length;
-  const im = shown[cur], a = im.stats, b = im.result_stats;
-  $("mTitle").textContent = `${im.title || im.url} (${cur + 1}/${shown.length})`;
-  $("mBefore").src = im.original_full;  // сначала грузится полноразмерный JPEG
+
+  const im = shown[cur];
+  const a = im.stats;
+  const b = im.result_stats;
+
+  $("mTitle").textContent =
+    `${im.title || im.url} (${cur + 1}/${shown.length})`;
+
+  $("mBefore").src = im.original_full;
   $("mAfter").src = im.processed_full;
-  $("mMeta").textContent = `${a.width}×${a.height} (${ratioLabel(a.width, a.height)}) · яркость ${a.brightness} → ${b.brightness} · контраст ${a.contrast} → ${b.contrast} · ` +
-    im.filters.map((f) => `${f.name} (${f.engine}) ×${f.intensity}`).join(", ");
+
+  $("mMeta").textContent =
+    `${a.width}×${a.height} (${ratioLabel(a.width, a.height)}) · ` +
+    `яркость ${a.brightness} → ${b.brightness} · ` +
+    `контраст ${a.contrast} → ${b.contrast} · ` +
+    im.filters
+      .map((f) => `${f.name} (${f.engine}) ×${f.intensity}`)
+      .join(", ");
+
   $("modal").hidden = false;
+  document.body.style.overflow = "hidden";
 }
-function closeModal() { $("modal").hidden = true; cur = -1; }
+
+function closeModal() {
+  $("modal").hidden = true;
+  document.body.style.overflow = "";
+  cur = -1;
+}
 
 $("gallery").addEventListener("click", (e) => {
   const i = e.target.dataset && e.target.dataset.i;
