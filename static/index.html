@@ -4,12 +4,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ImageScope</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
+<script>
+(function () {
+  var t = localStorage.getItem("imagescope-theme") || "rose";
+  if (t !== "auto") document.documentElement.setAttribute("data-theme", t);
+})();
+</script>
 </head>
 <body>
-<header>
-  <h1>ImageScope</h1>
-  <p class="src">Источник: <a id="srcLink" href="#" target="_blank" rel="noopener"></a></p>
+<header class="top">
+  <div class="brand">
+    <h1>ImageScope</h1>
+    <p class="src">Источник: <a id="srcLink" href="#" target="_blank" rel="noopener"></a></p>
+  </div>
+  <label class="theme-picker">Тема
+    <select id="theme" aria-label="Тема оформления">
+      <option value="auto">Как в системе</option>
+      <option value="paper">Светлая</option>
+      <option value="ink">Тёмная</option>
+      <option value="rose">Нежно-розовая</option>
+    </select>
+  </label>
 </header>
 
 <section class="panel controls">
@@ -23,7 +42,7 @@
   <label>Изображений: <b id="limVal">12</b>
     <input id="limit" type="range" min="1" max="20" step="1" value="12">
   </label>
-  <button id="run">Запустить сбор</button>
+  <button id="run" type="button">Запустить сбор</button>
 </section>
 
 <div id="status" class="status" hidden></div>
@@ -34,13 +53,13 @@
     <h2>Пропущено / ошибки</h2>
     <ul id="errors"></ul>
   </div>
-  <h2>Галерея «до / после»</h2>
+  <h2 class="section-title">Галерея «до / после»</h2>
   <div id="gallery" class="gallery"></div>
 </section>
 <div id="modal" class="modal" hidden>
-  <button class="nav prev" id="mPrev" aria-label="Назад">‹</button>
+  <button class="nav prev" type="button" id="mPrev" aria-label="Назад">‹</button>
   <div class="mbody">
-    <button class="close" id="mClose" aria-label="Закрыть">×</button>
+    <button class="close" type="button" id="mClose" aria-label="Закрыть">×</button>
     <h3 id="mTitle"></h3>
     <div class="mpair">
       <figure><img id="mBefore" alt="до"><figcaption>до</figcaption></figure>
@@ -48,7 +67,7 @@
     </div>
     <p id="mMeta" class="hint"></p>
   </div>
-  <button class="nav next" id="mNext" aria-label="Вперёд">›</button>
+  <button class="nav next" type="button" id="mNext" aria-label="Вперёд">›</button>
 </div>
 <script src="/static/app.js"></script>
 </body>
