@@ -1,5 +1,24 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const THEME_KEY = "imagescope-theme";
+
+function applyTheme(id) {
+  const root = document.documentElement;
+  if (id === "auto") root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", id);
+  localStorage.setItem(THEME_KEY, id);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY) || "rose";
+  const sel = $("theme");
+  if (sel) {
+    sel.value = ["auto", "paper", "ink", "rose"].includes(saved) ? saved : "rose";
+    applyTheme(sel.value);
+    sel.addEventListener("change", (e) => applyTheme(e.target.value));
+  }
+}
+
 let filters = [];
 let shown = [];
 let cur = -1;
@@ -110,6 +129,7 @@ $("filter").addEventListener("change", updateDesc);
 $("intensity").addEventListener("input", (e) => ($("intVal").textContent = (+e.target.value).toFixed(2)));
 $("limit").addEventListener("input", (e) => ($("limVal").textContent = e.target.value));
 $("run").addEventListener("click", run);
+initTheme();
 init();
 
 function openModal(i) {
