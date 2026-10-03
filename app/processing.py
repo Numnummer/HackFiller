@@ -1,6 +1,7 @@
 """Анализ (NumPy) и фильтры: NumPy-операции над массивами и PyTorch conv2d."""
 import base64
 import io
+import os
 
 import numpy as np
 import torch
@@ -10,6 +11,19 @@ from PIL import Image
 from . import config
 from .schemas import AppliedFilter, FilterInfo, ImageStats
 
+def _pick_device() -> torch.device:
+    """IMAGESCOPE_DEVICE=auto|cpu|cuda (по умолчанию auto: CUDA, если доступна)."""
+    want = os.environ.get("IMAGESCOPE_DEVICE", "auto").lower()
+    if want == "cpu":
+        return torch.device("cpu")
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if want == "cuda":
+        raise RuntimeError("IMAGESCOPE_DEVICE=cuda, но CUDA недоступна (нужна CUDA-сборка torch)")
+    return torch.device("cpu")
+
+
+DEVICE = _pick_device()
 LUMA = np.array([0.299, 0.587, 0.114], dtype=np.float32)
 HIST_BINS = 16
 
@@ -147,17 +161,18 @@ SOBEL_Y = SOBEL_X.T.contiguous()
 
 def _to_tensor(a: np.ndarray) -> torch.Tensor:
     """H x W x 3 -> 1 x C x H x W (float, 0..1)."""
-    return torch.from_numpy(np.ascontiguousarray(a)).permute(2, 0, 1).unsqueeze(0) / 255.0
+    t = torch.from_numpy(np.ascontiguousarray(a)).to(DEVICE)
+    return t.permute(2, 0, 1).unsqueeze(0) / 255.0
 
 
 def _from_tensor(t: torch.Tensor) -> np.ndarray:
-    return (t.squeeze(0).permute(1, 2, 0).clamp(0, 1) * 255).numpy()
+    return (t.squeeze(0).permute(1, 2, 0).clamp(0, 1) * 255).cpu().numpy()
 
 
 def _conv(t: torch.Tensor, kernel: torch.Tensor) -> torch.Tensor:
     """Depthwise conv2d: одно и то же ядро для каждого из каналов C."""
     c = t.shape[1]
-    w = kernel.expand(c, 1, *kernel.shape).contiguous()
+    w = kernel.to(t.device).expand(c, 1, *kernel.shape).contiguous()
     pad = kernel.shape[0] // 2
     t = F.pad(t, (pad, pad, pad, pad), mode="replicate")
     return F.conv2d(t, w, groups=c)
@@ -177,7 +192,7 @@ def _gauss_blur(t: torch.Tensor, sigma: float) -> torch.Tensor:
     if sigma < 0.3:
         return t
     r = max(1, int(np.ceil(3 * sigma)))
-    x = torch.arange(-r, r + 1, dtype=torch.float32)
+    x = torch.arange(-r, r + 1, dtype=torch.float32, device=t.device)
     k = torch.exp(-x ** 2 / (2 * sigma ** 2))
     k = k / k.sum()
     c = t.shape[1]

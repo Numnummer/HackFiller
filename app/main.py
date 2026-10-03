@@ -19,7 +19,7 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "torch_device": str(processing.DEVICE)}
 
 
 @app.get("/")

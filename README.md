@@ -13,7 +13,9 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt      # CPU-torch: --extra-index-url https://download.pytorch.org/whl/cpu
 uvicorn app.main:app --reload
 ```
-Откройте http://127.0.0.1:8000. Тесты: `python -m pytest`.
+Откройте http://127.0.0.1:8000.
+
+**CPU / CUDA.** PyTorch-фильтры сами используют GPU, если доступна CUDA (устройство видно в `GET /health` → `torch_device`). Принудительно: `IMAGESCOPE_DEVICE=cpu` или `cuda`. Для GPU нужна CUDA-сборка torch, например `pip install torch --index-url https://download.pytorch.org/whl/cu121` (CPU-сборка `+cpu` работает только на процессоре). Тесты: `python -m pytest`.
 
 ## Цепочка
 интерфейс (`static/`) → `POST /api/analyze` (FastAPI) → `parser.py` (HTML с тайм-аутом, `<img>`, относительные ссылки → абсолютные, загрузка с лимитом размера) → `processing.py` (статистика NumPy, фильтры NumPy/PyTorch) → JSON с оригиналами и результатами (data URI) → галерея «до/после».

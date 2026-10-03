@@ -4,6 +4,17 @@ let filters = [];
 let shown = [];
 let cur = -1;
 
+const COMMON_RATIOS = [[1, 1], [5, 4], [4, 3], [3, 2], [16, 10], [16, 9], [21, 9], [4, 5], [3, 4], [2, 3], [10, 16], [9, 16]];
+const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+// 1920×1080 -> "16:9"; нестандартные размеры -> ближайшее популярное соотношение (≤3%), иначе сокращённая дробь
+function ratioLabel(w, h) {
+  const r = w / h;
+  const best = COMMON_RATIOS.reduce((m, c) => (Math.abs(c[0] / c[1] - r) < Math.abs(m[0] / m[1] - r) ? c : m));
+  if (Math.abs(best[0] / best[1] - r) / r <= 0.03) return `${best[0]}:${best[1]}`;
+  const g = gcd(w, h);
+  return `${w / g}:${h / g}`;
+}
+
 function showStatus(text, kind) {
   const el = $("status");
   el.hidden = !text;
@@ -36,13 +47,6 @@ async function init() {
   }
 }
 
-function histChart(before, after) {
-  const max = Math.max(...before, ...after, 0.001);
-  $("hist").innerHTML = before.map((v, i) =>
-    `<div class="col" title="яркость ${i * 16}–${i * 16 + 15}: до ${(v * 100).toFixed(1)}%, после ${(after[i] * 100).toFixed(1)}%">` +
-    `<i class="a" style="height:${(v / max) * 100}%"></i><i class="b" style="height:${(after[i] / max) * 100}%"></i></div>`).join("");
-}
-
 function render(d) {
   const s = d.summary;
   const card = (v, l) => `<div class="card"><b>${v}</b><span>${l}</span></div>`;
@@ -51,7 +55,6 @@ function render(d) {
     card(`${s.avg_brightness} → ${s.avg_result_brightness}`, "средняя яркость до → после") +
     card(`${s.avg_contrast} → ${s.avg_result_contrast}`, "средний контраст до → после") +
     card(d.elapsed_sec + " c", "время");
-  histChart(s.histogram, s.result_histogram);
 
   $("errPanel").hidden = !d.errors.length;
   $("errors").innerHTML = d.errors.map((e) =>
@@ -68,7 +71,7 @@ function render(d) {
         <figure><img src="${im.processed}" alt="после" data-i="${idx}"><figcaption>после</figcaption></figure>
       </div>
       <div class="meta">
-        <span>Размер: ${a.width}×${a.height} (${a.aspect_ratio})</span>
+        <span>Размер: ${a.width}×${a.height} (${ratioLabel(a.width, a.height)})</span>
         <span>Ср. цвет: <i style="display:inline-block;width:12px;height:12px;background:rgb(${a.mean_color});border:1px solid #888;vertical-align:-1px"></i> rgb(${a.mean_color})</span>
         <span>Яркость: ${a.brightness} → ${b.brightness}</span>
         <span>Контраст: ${a.contrast} → ${b.contrast}</span>
@@ -116,7 +119,7 @@ function openModal(i) {
   $("mTitle").textContent = `${im.title || im.url} (${cur + 1}/${shown.length})`;
   $("mBefore").src = im.original_full;  // сначала грузится полноразмерный JPEG
   $("mAfter").src = im.processed_full;
-  $("mMeta").textContent = `${a.width}×${a.height} · яркость ${a.brightness} → ${b.brightness} · контраст ${a.contrast} → ${b.contrast} · ` +
+  $("mMeta").textContent = `${a.width}×${a.height} (${ratioLabel(a.width, a.height)}) · яркость ${a.brightness} → ${b.brightness} · контраст ${a.contrast} → ${b.contrast} · ` +
     im.filters.map((f) => `${f.name} (${f.engine}) ×${f.intensity}`).join(", ");
   $("modal").hidden = false;
 }
