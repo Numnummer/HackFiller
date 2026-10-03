@@ -83,7 +83,7 @@ async def analyze(req: AnalyzeRequest):
         if not cands:
             raise HTTPException(502, "Не удалось получить ни одного изображения с источника: "
                                 + "; ".join(f.message for f in fails))
-        chosen = parser.pick_spread(cands, limit)
+        chosen = parser.pick_random(cands, limit)
         downloaded, dfails = await parser.download_images(client, chosen)
         errors += [ErrorItem(**f.__dict__) for f in dfails]
 

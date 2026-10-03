@@ -1,5 +1,6 @@
 """Получение HTML, извлечение ссылок на изображения и их загрузка."""
 import asyncio
+import random
 import re
 import time
 from dataclasses import dataclass
@@ -94,12 +95,9 @@ async def collect_candidates(client: httpx.AsyncClient, pages: list[str]):
     return candidates, failures, ok_pages
 
 
-def pick_spread(candidates: list[Candidate], limit: int) -> list[Candidate]:
-    """Равномерно выбирает limit кандидатов по всем страницам (для разнообразия)."""
-    if len(candidates) <= limit:
-        return candidates
-    step = len(candidates) / limit
-    return [candidates[int(i * step)] for i in range(limit)]
+def pick_random(candidates: list[Candidate], limit: int) -> list[Candidate]:
+    """Случайно выбирает limit кандидатов из всех найденных (новая выборка при каждом запуске)."""
+    return random.sample(candidates, min(limit, len(candidates)))
 
 
 async def _download(client, sem, cand: Candidate):
