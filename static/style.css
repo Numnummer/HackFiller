@@ -356,29 +356,36 @@ input[type="range"] {
   position: fixed;
   inset: 0;
   background: var(--overlay);
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   gap: 12px;
   padding: 16px;
   z-index: 10;
 }
 
-.modal[hidden] { display: none; }
+.modal[hidden] {
+  display: none;
+}
 
 .mbody {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 16px;
-  width: min(1800px, 92vw);
+
+  padding: 24px 52px 16px;
+
+  width: min(1800px, calc(100vw - 140px));
   max-height: 94vh;
   overflow: auto;
+
   position: relative;
 }
 
 .mbody h3 {
-  margin: 0 36px 10px 0;
+  margin: 0 48px 12px 0;
   font-size: 15px;
   font-weight: 700;
 }
@@ -408,27 +415,43 @@ input[type="range"] {
 
 .close,
 .nav {
-  background: color-mix(in srgb, var(--card) 25%, transparent);
-  color: #fff;
-  border: 1px solid rgb(255 255 255 / 0.35);
+  padding: 0;
+
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--border);
+
   font-size: 26px;
   line-height: 1;
-  width: 40px;
-  height: 40px;
-  border-radius: 3px;
+
+  width: 42px;
+  height: 48px;
+
+  border-radius: 4px;
   cursor: pointer;
-  flex: none;
+
+  flex: 0 0 42px;
+}
+
+.nav:hover {
+  background: var(--acc);
+  color: var(--acc-text);
 }
 
 .close {
   position: absolute;
-  top: 10px;
-  right: 10px;
+
+  top: 16px;
+  right: 16px;
+
   background: var(--bg);
   color: var(--fg);
   border-color: var(--border);
+
   width: 32px;
   height: 32px;
+  padding: 0;
+
   font-size: 20px;
 }
 
